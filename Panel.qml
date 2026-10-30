@@ -58,6 +58,18 @@ Panel {
     chevron: 0xF0142, alert: 0xF0026, check: 0xF012C, close: 0xF0156, download: 0xF01DA, refresh: 0xF0450
   })
 
+  readonly property bool alphaDismissed: settings && settings.alphaWarningDismissed === true
+
+  function dismissAlphaWarning() {
+    var entry = { id: root.moduleName }
+    for (var key in root.settings) if (key !== "id") entry[key] = root.settings[key]
+    entry.alphaWarningDismissed = true
+    root.settings = entry
+    if (root.hostWidget) root.hostWidget.settings = entry
+    if (root.bar && root.bar.shell && typeof root.bar.shell.updateEntryInline === "function")
+      root.bar.shell.updateEntryInline(root.moduleName, entry)
+  }
+
   function glyph(name) { return String.fromCodePoint(glyphCodes[name]) }
   function safePath(p) { return /^\/[A-Za-z0-9._\/-]+$/.test(p) }
   function sats(n) { return String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ",") + " sats" }
@@ -493,8 +505,9 @@ Panel {
           }
         }
 
-        // ---- Alpha banner
+        // ---- Alpha banner: dismissal is stored in the shell widget settings.
         Rectangle {
+          visible: !root.alphaDismissed
           width: parent.width
           implicitHeight: bannerRow.implicitHeight + Style.space(20)
           radius: Style.cornerRadius
@@ -518,7 +531,7 @@ Panel {
               font.pixelSize: Style.font.iconLarge
             }
             Column {
-              width: parent.width - bannerIcon.width - parent.spacing
+              width: parent.width - bannerIcon.width - dismissAlphaButton.width - 2 * parent.spacing
               spacing: Style.space(2)
               Text {
                 width: parent.width
@@ -539,6 +552,15 @@ Panel {
                 font.pixelSize: Style.font.body
                 wrapMode: Text.WordWrap
               }
+            }
+            PanelActionButton {
+              id: dismissAlphaButton
+              focusable: true
+              iconText: root.glyph("close")
+              tooltipText: "Dismiss alpha warning"
+              foreground: root.contentForeground
+              fontFamily: root.contentFontFamily
+              onClicked: root.dismissAlphaWarning()
             }
           }
         }

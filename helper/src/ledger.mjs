@@ -25,14 +25,22 @@ export class Ledger {
     let raw;
     try {
       raw = readFileSync(this.path, 'utf8');
-    } catch {
-      return;
+    } catch (error) {
+      if (error.code === 'ENOENT') return;
+      throw new Error('payment ledger cannot be read');
     }
     try {
       const data = JSON.parse(raw);
-      for (const [hash, entry] of Object.entries(data.payments ?? {})) {
-        if (/^[0-9a-f]{64}$/.test(hash) && STATUSES.has(entry?.status)) this.entries.set(hash, entry);
+      if (!data || data.version !== 1 || !data.payments || typeof data.payments !== 'object' || Array.isArray(data.payments)) {
+        throw new Error('invalid ledger schema');
       }
+      const entries = new Map();
+      for (const [hash, entry] of Object.entries(data.payments)) {
+        if (!/^[0-9a-f]{64}$/.test(hash) || !entry || !STATUSES.has(entry.status)
+            || !Number.isSafeInteger(entry.at) || entry.at < 0) throw new Error('invalid ledger entry');
+        entries.set(hash, entry);
+      }
+      this.entries = entries;
     } catch {
       // A corrupt ledger must not silently allow re-payment: keep the file for inspection and refuse to start.
       throw new Error('payment ledger is corrupt; inspect ' + this.path);
@@ -64,5 +72,12 @@ export class Ledger {
       closeSync(fd);
     }
     renameSync(tmp, this.path);
+    // Persist the directory entry before the caller can contact the wallet.
+    const directoryFd = openSync(this.directory, 'r');
+    try {
+      fsyncSync(directoryFd);
+    } finally {
+      closeSync(directoryFd);
+    }
   }
 }

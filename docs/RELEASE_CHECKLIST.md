@@ -51,7 +51,7 @@
 - [ ] Test a real budget-compatible wallet: connect, reconnect, revoke and disconnect, then a small owner-approved mainnet payment.
 - [ ] Publish a wallet compatibility table with tested wallet versions and budget support. Faucet tests use a relaxed policy and do not prove production onboarding works.
 - [ ] Distinguish installed-but-stopped helper from missing helper in the setup UI; current socket failure offers installation for either case.
-- [ ] Review installer rollback: it removes the old copy before confirming that the replacement service starts.
+- [x] Installer retains code and launch configuration until startup succeeds; isolated tests cover failed upgrade, failed first install and successful upgrade.
 - [ ] Verify private vulnerability reporting and release links after creating the GitHub repository.
 
 These entries record remaining work; previously checked historical claims are not a fresh security audit.
@@ -61,3 +61,10 @@ These entries record remaining work; previously checked historical claims are no
 - 25 plugin checks, 31 helper tests and 42 trusted-kit tests passed locally.
 - Omarchy plugin validation passed. QML lint with Omarchy imports reports only existing-style missing-property warnings.
 - This run did not exercise a funded wallet, reinstall the live plugin or retake UI captures. Dependency audits and secret scanning must also pass on GitHub before release.
+
+### Review fixes (2026-10-30)
+
+- Ledger read errors other than a missing file and invalid schemas prevent startup. Directory entries are synced after atomic replacement, before contacting the wallet.
+- Regression tests cover invalid ledger schemas, unreadable ledger paths and persistence failure preventing wallet calls.
+- Installed panel warning is dismissible and persists through Omarchy widget settings; `preview.png` shows the payment panel with the warning dismissed, using an NWC Faucet test wallet and simulated budget.
+- Budget-compatible wallet onboarding, clean-machine/keyring scenarios and full social captures remain open gates above. No funded payment was performed for these changes.

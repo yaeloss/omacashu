@@ -64,6 +64,8 @@ There is **no** one-step pay operation; every payment needs `prepare` and then `
 
 ## 6. Confirmation UX (plugin)
 
+- The alpha warning appears until dismissed with ×. Only that preference is persisted via Omarchy’s widget settings; payment confirmation remains mandatory.
+
 - The panel shows only helper-returned fields:
   - the amount in sats (large);
   - the payee node key (shortened, with the full value on hover);

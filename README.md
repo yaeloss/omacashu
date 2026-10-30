@@ -3,9 +3,9 @@
 **A Lightning + Cashu wallet for the Omarchy bar.**
 *Your wallet. Your budget. Every payment confirmed.*
 
-![omaCashu 0.2.0-alpha: actual panels captured on Omarchy with a test wallet](preview.png)
+![omaCashu: installed payment panel with the warning dismissed](preview.png)
 
-*Actual captures of the installed 0.2.0-alpha panel, paying from an [NWC Faucet](https://faucet.nwc.dev) test wallet (fake sats).*
+*Actual capture of the installed panel with the warning dismissed, using an NWC Faucet test wallet (fake sats and a simulated budget).*
 
 [![Status: Alpha](https://img.shields.io/badge/status-alpha-orange)](#alpha-warning)
 [![Budget required](https://img.shields.io/badge/wallet%20budget-required-blue)](#security-model)

@@ -239,3 +239,27 @@ test('failure classification', () => {
   assert.equal(isDefinitiveFailure(new WalletTimeout('x')), false);
   assert.equal(isDefinitiveFailure(new Error('x')), false);
 });
+
+test('ledger accepts only missing files or a valid complete schema', (t) => {
+  const dir = mkdtempSync(join(tmpdir(), 'omacashu-ledger-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const ledger = new Ledger(dir);
+  assert.equal(ledger.entries.size, 0);
+  mkdirSync(ledger.path);
+  assert.throws(() => new Ledger(dir), /cannot be read/);
+  rmSync(ledger.path, { recursive: true });
+  for (const data of [{}, null, { version: 2, payments: {} }, { version: 1, payments: [] },
+    { version: 1, payments: { bad: { status: 'unknown', at: 1 } } },
+    ...['invalid', 'unknown'].map(status => ({ version: 1, payments: { ['ab'.repeat(32)]: { status } } }))]) {
+    writeFileSync(ledger.path, JSON.stringify(data));
+    assert.throws(() => new Ledger(dir), /corrupt/);
+  }
+});
+
+test('ledger persistence failure prevents contacting the wallet', async (t) => {
+  const { service, ledger, wallet } = setup(t, { pay: async () => ({}) });
+  const prepared = await service.prepare(makeInvoice().invoice);
+  ledger.save = () => { throw new Error('simulated disk failure'); };
+  await assert.rejects(service.confirm(prepared.payment_id), /disk failure/);
+  assert.equal(wallet.calls.pay.length, 0);
+});

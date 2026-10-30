@@ -4,10 +4,15 @@ All notable changes to omaCashu. Versions follow [Semantic Versioning](https://s
 
 ## Unreleased
 
+- Alpha banner can be dismissed with × (keyboard accessible); Omarchy widget settings remember the choice across restarts.
+- Ledger loading fails closed on read errors and invalid schemas; ledger replacement syncs the parent directory before payments.
+- Helper updates retain the previous code and launch configuration until startup succeeds and restore them on failure.
+- Added isolated installer rollback tests and ledger failure-path tests.
+
 - Guided panel setup with numbered install, connect and payment steps, wallet preparation instructions and a manual setup recheck.
 - Added an onboarding recovery guide and explicit pre-publication onboarding checks.
 - Corrected stale confirmation status and narrowed duplicate-payment wording to local ledger protection.
-- Updated UI captures are pending validation of the revised panel.
+- Refreshed `preview.png` with a real capture of the installed payment panel with the warning dismissed; complete onboarding and social captures remain pending.
 
 ## [0.2.0-alpha] - 2026-10-29
 
