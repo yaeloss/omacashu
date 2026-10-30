@@ -1,0 +1,17 @@
+{
+  "name": "omacashu-trusted-sdk",
+  "version": "0.1.0-alpha",
+  "private": true,
+  "description": "Trusted-device-only, read-only Alby SDK NWC adapter for omaCashu (alpha)",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@getalby/sdk": "8.0.3"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "license": "MIT"
+}

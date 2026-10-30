@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  plugin:
+    name: Plugin rules
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Manifest, layout and QML capability tests
+        run: python3 -m unittest discover -s tests -v
+      - name: Manifest is valid JSON
+        run: jq -e . manifest.json > /dev/null
+
+  helper:
+    name: Helper (unit tests, supply chain)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: helper
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      - run: npm ci --ignore-scripts
+      - run: npm test
+      - run: npm audit --audit-level=low
+      - run: npm audit signatures
+      - name: Installer syntax
+        run: bash -n install.sh && bash -n uninstall.sh
+
+  trusted:
+    name: Trusted-device kit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: trusted
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      - run: python -m unittest discover -s tests -v
+      - name: SDK adapter
+        working-directory: trusted/sdk
+        run: npm ci --ignore-scripts && npm test && npm audit --audit-level=low && npm audit signatures
+      - name: sshd snippet and systemd units
+        run: |
+          tmp=$(mktemp -d)
+          ssh-keygen -q -t ed25519 -N '' -f "$tmp/hostkey"
+          printf 'HostKey %s/hostkey\nPidFile none\nInclude %s\n' "$tmp" "$PWD/deploy/sshd_config.d/omacashu-propose.conf" > "$tmp/sshd_config"
+          "$(command -v sshd || echo /usr/sbin/sshd)" -t -f "$tmp/sshd_config"
+          systemd-analyze verify deploy/omacashu-broker.service
+
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

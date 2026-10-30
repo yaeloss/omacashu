@@ -1,0 +1,4 @@
+# /etc/ssh/authorized_keys/omacashu-propose  (root:root 0644; the proposer cannot edit it)
+# One dedicated key generated on Omarchy for proposals ONLY. Never reuse an admin key.
+# Optional: add from="<omarchy-ip>" to bind the key to the desktop's address.
+restrict,command="/usr/bin/python3 -I -B /opt/omacashu/trusted/bridge/omacashu_ssh_bridge.py" ssh-ed25519 AAAA...replace-me... omarchy-propose-only

@@ -1,0 +1,44 @@
+name: Bug report
+description: Report a problem with the panel, the helper or the trusted kit (no secrets, no wallet data)
+title: "[Bug] "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Never include** NWC connection strings, private keys, Cashu tokens, recovery phrases, real invoices or `~/.local/state/omacashu` contents.
+        Security vulnerabilities must be reported privately: https://github.com/yaeloss/omacashu/security/advisories/new
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options: [panel (bar widget), helper (omacashu / omacashu-helper), installer, trusted kit]
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: omaCashu version
+      placeholder: 0.2.0-alpha
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Output of `omarchy version` and your Hyprland version. No personal information.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: Expected and actual behavior
+      description: Include `omacashu status` output and relevant lines from `qs log -p "$OMARCHY_PATH/shell" --tail 100` or `journalctl --user -u omacashu-helper -n 50` (they never contain secrets).
+    validations:
+      required: true

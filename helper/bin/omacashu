@@ -1,0 +1,237 @@
+#!/usr/bin/env node
+/**
+ * omacashu: desktop wallet helper for the omaCashu Omarchy plugin.
+ *
+ *   omacashu connect      store a budget-limited NWC connection in the keyring
+ *   omacashu disconnect   remove it
+ *   omacashu status       show helper and wallet status
+ *   omacashu daemon       run the helper (started by systemd --user)
+ */
+import { mkdirSync, readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+import { createInterface } from 'node:readline/promises';
+
+// The SDK and its transports may log URLs or relay frames. Silence everything up front.
+const out = (text = '') => process.stdout.write(text + '\n');
+const errOut = (text) => process.stderr.write(text + '\n');
+for (const method of ['log', 'info', 'warn', 'error', 'debug', 'trace', 'dir', 'table']) console[method] = () => {};
+process.removeAllListeners('warning');
+process.on('warning', () => {});
+
+const { CredentialError, parseConnectionUrl } = await import('../src/credential.mjs');
+const { checkConnection, STRICT_POLICY } = await import('../src/policy.mjs');
+const keyring = await import('../src/keyring.mjs');
+const { request, startServer } = await import('../src/server.mjs');
+const { HelperService, VERSION } = await import('../src/service.mjs');
+const { Ledger } = await import('../src/ledger.mjs');
+const { createNwcWallet } = await import('../src/wallet.mjs');
+
+const env = process.env;
+const runtimeDir = env.RUNTIME_DIRECTORY || join(env.XDG_RUNTIME_DIR || `/run/user/${process.getuid()}`, 'omacashu');
+const socketPath = join(runtimeDir, 'helper.sock');
+const stateDir = env.STATE_DIRECTORY || join(env.XDG_STATE_HOME || join(homedir(), '.local', 'state'), 'omacashu');
+const configPath = join(env.XDG_CONFIG_HOME || join(homedir(), '.config'), 'omacashu', 'helper.json');
+const NETWORKS = ['mainnet', 'testnet', 'signet', 'regtest'];
+
+function loadPolicy() {
+  let config = {};
+  try {
+    config = JSON.parse(readFileSync(configPath, 'utf8'));
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      errOut(`omacashu: ignoring unreadable config ${configPath}`);
+    }
+  }
+  const ceiling = Number.isSafeInteger(config.budgetCeilingSat) && config.budgetCeilingSat > 0 && config.budgetCeilingSat <= 10_000_000
+    ? config.budgetCeilingSat : STRICT_POLICY.ceilingSat;
+  const network = NETWORKS.includes(config.network) ? config.network : STRICT_POLICY.network;
+  return Object.freeze({ ...STRICT_POLICY, ceilingSat: ceiling, network });
+}
+
+function readHidden(prompt) {
+  process.stdout.write(prompt);
+  const stdin = process.stdin;
+  if (!stdin.isTTY) {
+    return new Promise((resolve) => {
+      let data = '';
+      stdin.setEncoding('utf8');
+      stdin.on('data', (c) => { data += c; if (data.length > 8192) stdin.destroy(); });
+      stdin.on('end', () => { out(); resolve(data.split('\n')[0]); });
+      stdin.on('close', () => resolve(data.split('\n')[0]));
+    });
+  }
+  return new Promise((resolve) => {
+    let buffer = '';
+    stdin.setRawMode(true);
+    stdin.setEncoding('utf8');
+    stdin.resume();
+    const finish = (value) => {
+      stdin.setRawMode(false);
+      stdin.pause();
+      stdin.off('data', onData);
+      out(value === null ? '' : `  (received ${value.length} characters)`);
+      resolve(value);
+    };
+    const onData = (text) => {
+      for (const ch of text.replace(/\u001b\[20[01]~/g, '')) {
+        if (ch === '\r' || ch === '\n') return finish(buffer);
+        if (ch === '\u0003' || ch === '\u0004') return finish(null);
+        if (ch === '\u007f' || ch === '\b') buffer = buffer.slice(0, -1);
+        else if (ch >= ' ') buffer += ch;
+        if (buffer.length > 8192) return finish(null);
+      }
+    };
+    stdin.on('data', onData);
+  });
+}
+
+async function ask(question) {
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    return (await rl.question(question)).trim();
+  } finally {
+    rl.close();
+  }
+}
+
+const formatSats = (n) => `${Number(n).toLocaleString('en-US')} sats`;
+
+async function notifyDaemon() {
+  try {
+    await request(socketPath, { op: 'reload' }, 3000);
+  } catch { /* daemon not running: it reads the keyring on its next start */ }
+}
+
+async function connect() {
+  const policy = loadPolicy();
+  out('omaCashu: connect a wallet (Nostr Wallet Connect)');
+  out('');
+  out('Create a NEW connection in your wallet just for omaCashu, with:');
+  out('  • permission to pay invoices (pay_invoice) and read the budget (get_budget)');
+  out(`  • a spending BUDGET (required), at most ${formatSats(policy.ceilingSat)} per period`);
+  out('');
+  out('The connection string is stored only in your system keyring, never in the plugin.');
+  out('Anything running as your user could spend up to that budget, so keep it small.');
+  out('');
+
+  if (await keyring.loadConnection().catch(() => null)) {
+    if ((await ask('A wallet is already connected. Replace it? Type "yes": ')) !== 'yes') return 1;
+  }
+
+  const raw = await readHidden('Paste the nostr+walletconnect:// connection (input hidden): ');
+  if (raw === null) { out('Cancelled.'); return 130; }
+  let parsed;
+  try {
+    parsed = parseConnectionUrl(raw);
+  } catch (error) {
+    errOut(error instanceof CredentialError ? error.message : 'invalid connection');
+    return 1;
+  }
+
+  out('Checking the connection with your wallet…');
+  let wallet;
+  try {
+    wallet = await createNwcWallet(parsed.url);
+    const info = await wallet.getInfo();
+    const budgetResponse = await wallet.getBudget().catch(() => null);
+    const { problems, budget, unused } = checkConnection(info, budgetResponse, policy);
+    if (problems.length) {
+      errOut('');
+      errOut('This connection cannot be used:');
+      for (const problem of problems) errOut(`  ✗ ${problem}`);
+      errOut('');
+      errOut('Create a new connection in your wallet that can pay invoices and has a budget, then run omacashu connect again.');
+      return 1;
+    }
+    const renews = budget.renewsAt ? `, renews ${new Date(budget.renewsAt * 1000).toLocaleString()}` : '';
+    out('');
+    out(`  Wallet:  ${info.alias ? String(info.alias).replace(/[^\x20-\x7e]/g, '').slice(0, 40) : 'unnamed'} (${info.network ?? 'unknown network'})`);
+    out(`  Budget:  ${formatSats(Math.floor(budget.usedMsat / 1000))} used of ${formatSats(Math.floor(budget.totalMsat / 1000))} (${budget.renewalPeriod}${renews})`);
+    out(`  Network: payments allowed on ${policy.network} only`);
+    if (unused.length) out(`  Also allows (omaCashu never uses these): ${unused.join(', ')}`);
+    out('');
+    if ((await ask('Save this connection to your keyring? Type "yes": ')) !== 'yes') {
+      out('Not saved.');
+      return 1;
+    }
+    await keyring.storeConnection(parsed.url);
+  } catch (error) {
+    errOut(error instanceof keyring.KeyringError ? error.message : 'Could not reach the wallet. Check the connection and your network.');
+    return 1;
+  } finally {
+    wallet?.close();
+  }
+  await notifyDaemon();
+  out('');
+  out('Connected. Open omaCashu in your bar to pay invoices.');
+  return 0;
+}
+
+async function disconnect() {
+  if ((await ask('Remove the wallet connection from your keyring? Type "yes": ')) !== 'yes') return 1;
+  await keyring.clearConnection();
+  await notifyDaemon();
+  out('Removed. Also revoke the connection in your wallet so it can never be used again.');
+  return 0;
+}
+
+async function status() {
+  let response;
+  try {
+    response = await request(socketPath, { op: 'status' }, 30_000);
+  } catch {
+    errOut('Helper is not running. Start it with: systemctl --user start omacashu-helper');
+    return 1;
+  }
+  out(`Helper:  running (v${response.version}, ${response.mode} only, ceiling ${formatSats(response.ceiling_sat)})`);
+  if (!response.connected) {
+    out(`Wallet:  not connected (${response.problem ?? 'run omacashu connect'})`);
+    return 0;
+  }
+  if (!response.reachable) { out('Wallet:  connected but not reachable right now'); return 0; }
+  out(`Wallet:  ${response.alias ?? 'unnamed'}${response.usable ? '' : ' (NOT usable)'}`);
+  for (const problem of response.problems ?? []) out(`  ✗ ${problem}`);
+  if (response.budget) out(`Budget:  ${formatSats(response.budget.used_sat)} used of ${formatSats(response.budget.total_sat)}`);
+  return 0;
+}
+
+async function daemon() {
+  const policy = loadPolicy();
+  mkdirSync(runtimeDir, { recursive: true, mode: 0o700 });
+  const ledger = new Ledger(stateDir);
+  const service = new HelperService({
+    loadCredential: keyring.loadConnection,
+    walletFactory: createNwcWallet,
+    ledger,
+    policy,
+  });
+  const server = await startServer(service, socketPath);
+  errOut(`omacashu helper ${VERSION} ready (${policy.network}, ceiling ${policy.ceilingSat} sats)`);
+  const stop = () => {
+    server.close();
+    service.reload();
+    process.exit(0);
+  };
+  process.on('SIGTERM', stop);
+  process.on('SIGINT', stop);
+  process.on('uncaughtException', () => { errOut('omacashu helper: internal error'); process.exit(1); });
+  process.on('unhandledRejection', () => { errOut('omacashu helper: internal error'); process.exit(1); });
+}
+
+const commands = { connect, disconnect, status, daemon };
+const command = process.argv[2];
+if (command === '--version' || command === 'version') {
+  out(VERSION);
+} else if (!commands[command] || process.argv.length > 3) {
+  out('usage: omacashu connect | disconnect | status | daemon | --version');
+  process.exitCode = command ? 2 : 0;
+} else {
+  try {
+    const code = await commands[command]();
+    if (command !== 'daemon') process.exit(code ?? 0);
+  } catch (error) {
+    errOut(`omacashu: ${error instanceof Error && /^[\w .,:'()/-]+$/.test(error.message) ? error.message : 'failed'}`);
+    process.exit(1);
+  }
+}

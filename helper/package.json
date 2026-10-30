@@ -1,0 +1,23 @@
+{
+  "name": "omacashu-helper",
+  "version": "0.2.0-alpha",
+  "private": true,
+  "description": "Desktop wallet helper for the omaCashu Omarchy plugin: keeps the NWC connection in the system keyring and pays only budget-limited, confirmed invoices",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "omacashu": "bin/omacashu"
+  },
+  "dependencies": {
+    "@getalby/sdk": "8.0.3",
+    "@noble/curves": "2.0.1",
+    "@noble/hashes": "2.0.1",
+    "@scure/base": "2.0.0"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "license": "MIT"
+}

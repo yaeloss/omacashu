@@ -1,0 +1,60 @@
+# omaCashu request-only broker (trusted device only)
+# Install: /etc/systemd/system/omacashu-broker.service
+# Requires: users omacashu-wallet (service) and omacashu-propose (SSH ingress),
+# group omacashu-requests containing omacashu-propose, code at /opt/omacashu/trusted (root-owned, 0755/0644).
+[Unit]
+Description=omaCashu request-only broker (trusted device)
+Documentation=https://github.com/yaeloss/omacashu/tree/main/trusted
+After=local-fs.target
+
+[Service]
+Type=simple
+User=omacashu-wallet
+Group=omacashu-requests
+ExecStart=/usr/bin/python3 -I -B /opt/omacashu/trusted/bin/omacashu-broker --socket /run/omacashu/requests.sock --state /var/lib/omacashu
+Restart=on-failure
+RestartSec=2
+
+# /run/omacashu: owned omacashu-wallet:omacashu-requests 0710, so proposers can reach only the socket.
+RuntimeDirectory=omacashu
+RuntimeDirectoryMode=0710
+StateDirectory=omacashu
+StateDirectoryMode=0700
+UMask=0077
+
+# Sandboxing: the broker needs no network, devices, capabilities or writable system paths.
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateNetwork=yes
+IPAddressDeny=any
+RestrictAddressFamilies=AF_UNIX
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateUsers=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RemoveIPC=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources @mount @debug
+SystemCallErrorNumber=EPERM
+LimitNOFILE=256
+TasksMax=32
+MemoryMax=128M
+
+[Install]
+WantedBy=multi-user.target

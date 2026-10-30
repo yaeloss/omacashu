@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.yaeloss.omacashu",
+  "name": "omaCashu",
+  "version": "0.2.0-alpha",
+  "author": "yaeloss",
+  "license": "MIT",
+  "description": "Lightning + Cashu (NWC) wallet for the Omarchy bar. Pays verified invoices through a local helper that keeps your wallet connection in the system keyring, with a mandatory wallet budget and hold-to-pay confirmation. Alpha.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "omaCashu",
+    "description": "Pay Lightning invoices from the bar. Budget-limited NWC wallet via the omaCashu helper; every payment is reviewed and confirmed.",
+    "category": "Info",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}

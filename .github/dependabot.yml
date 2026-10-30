@@ -1,0 +1,22 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 14
+  - package-ecosystem: npm
+    directory: /helper
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 28
+    open-pull-requests-limit: 3
+  - package-ecosystem: npm
+    directory: /trusted/sdk
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 28
+    open-pull-requests-limit: 3

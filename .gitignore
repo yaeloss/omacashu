@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
+# Node (lockfiles ARE committed)
+node_modules/
+
+# Runtime state
+*.sqlite3
+*.sqlite3-*
+*.sock
+*.log
+
+# Editors / OS
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# Never commit secrets or wallet material
+.env
+.env.*
+*.pem
+*.key
+*.secret
+*.credential
+*nwc*.txt
+.nwc*
+id_*
+*known_hosts*
