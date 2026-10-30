@@ -14,7 +14,7 @@
     "@getalby/sdk": "8.0.3",
     "@noble/curves": "2.0.1",
     "@noble/hashes": "2.0.1",
-    "@scure/base": "2.0.0"
+    "@scure/base": "2.4.0"
   },
   "scripts": {
     "test": "node --test test/*.test.mjs"
