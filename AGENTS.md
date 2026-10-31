@@ -7,7 +7,7 @@ Read `SECURITY.md`, `docs/THREAT_MODEL.md`, `docs/LIVE_WALLET_DESIGN.md` and `do
 Live wallets are **allowed**, only through the design in `docs/LIVE_WALLET_DESIGN.md`:
 
 - The NWC spending credential lives in the **omaCashu helper** (`helper/`, OS keyring). It never goes into QML, shell config, plugin files, logs, tests or screenshots.
-- Every connection must have a **wallet-enforced budget**. The helper refuses connections without one. Other permissions on the connection are allowed. Never weaken `STRICT_POLICY` in `helper/src/policy.mjs`; relaxed policies may only be built inside test harnesses.
+- Wallet budgets are **optional** (owner policy change, 2026-10-31). Require `pay_invoice`; query `get_budget` only when advertised. There is no local budget ceiling. Respect remaining budget when reported, and never claim protection beyond the wallet's own restrictions. Keep all invoice, confirmation and replay protections.
 - **Every payment must be confirmed** in the panel (press-and-hold or hold Space), using helper-verified details. No auto-pay, no background payments, no one-step pay operation in the helper protocol.
 
 ## Repository layout and rules

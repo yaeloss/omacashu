@@ -1,5 +1,9 @@
 # omaCashu release checklist
 
+## Policy update — 2026-10-31
+
+Budget reporting is now optional and there is no local spending ceiling. Earlier checked mandatory-budget/faucet-refusal entries below describe the historical release, not current behavior. Per-payment confirmation and invoice verification remain required. Cashu.me onboarding still needs owner validation.
+
 ## v0.2.0-alpha: live payments
 
 **Plugin**
@@ -68,3 +72,11 @@ These entries record remaining work; previously checked historical claims are no
 - Regression tests cover invalid ledger schemas, unreadable ledger paths and persistence failure preventing wallet calls.
 - Installed panel warning is dismissible and persists through Omarchy widget settings; `preview.png` shows the payment panel with the warning dismissed, using an NWC Faucet test wallet and simulated budget.
 - Budget-compatible wallet onboarding, clean-machine/keyring scenarios and full social captures remain open gates above. No funded payment was performed for these changes.
+
+### Optional-budget validation (2026-10-31)
+
+- 28 plugin/installer tests, 34 helper tests and 42 trusted-kit tests passed.
+- Omarchy plugin validation passed; QML lint with shell imports reports only the documented missing-property warnings.
+- Faucet end-to-end payment passed using the production policy: invoice verified, payment preimage checked, recipient received fake sats, duplicate payment refused.
+- Updated helper installed and running locally; installed panel matches the repository. Preview retaken with the faucet test wallet and simulated budget.
+- Cashu.me owner connection remains to be retried; no real-wallet payment was performed. The prior marketplace scan applies only to its recorded commit, so this policy change needs a fresh scan before submission.

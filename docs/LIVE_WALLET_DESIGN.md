@@ -4,13 +4,13 @@
 
 **Decisions**
 - The NWC spending credential lives in a **desktop helper**, a separate process on the Omarchy machine. It does not live in the plugin.
-- Mandatory guardrails: a **wallet-enforced budget** and **confirm every payment**.
+- Mandatory guardrail: **confirm every payment**. Wallet budgets are optional; no local ceiling.
 
 ## 1. Why a helper and not the plugin
 
 Every Omarchy plugin runs inside one unsandboxed `omarchy-shell` process. An NWC URL loaded into QML could be read by any other plugin. A separate helper process keeps the secret out of the shell's memory, and the plugin only ever sees helper-decoded payment details.
 
-What this does **not** protect against: malware running as your login user can still read the keyring entry, or talk to the helper socket directly. In live wallet mode, **the wallet-enforced budget is the hard security boundary.** Everything else reduces accidents and attack surface.
+What this does **not** protect against: malware running as your login user can still read the keyring entry, or talk to the helper socket directly. In live wallet mode, **exposure is everything the connection permits; only the wallet’s own restrictions limit spending.** Everything else reduces accidents and attack surface.
 
 ## 2. Components
 
@@ -27,12 +27,7 @@ Everything lives in the single public repository `yaeloss/omacashu`:
 ## 3. Credential handling
 
 - **Connect:** `omacashu connect` reads the NWC URI from **stdin only**, never argv or environment variables, and validates it with the same strict parser as `omacashu-trusted/sdk/credential.mjs`.
-- **Budget check (refuse otherwise):**
-  1. `get_info` must list `pay_invoice` and `get_budget`.
-  2. Other permissions (keysend, hold invoices, `sign_message` and so on) are **allowed**. omaCashu never calls them; they are listed at connect time for information. Policy change of 2026-10-30: the method allowlist was removed at the owner's request. The wallet budget remains the hard limit on spending. Note that a stolen connection string could still use non-spending permissions such as `sign_message`.
-  3. `get_budget` must return a `total_budget`. An empty response means no budget, and the connection is refused.
-  4. If `total_budget` exceeds the local ceiling (default 100,000 sats per period, configurable down or up), the connection is refused.
-  5. The budget is shown to the user, who must type `yes` to save the connection.
+- **Connection check (policy changed 2026-10-31):** `get_info` must advertise `pay_invoice`. `get_budget` is optional: query it only when advertised, and treat an unavailable or unsupported response as no reported budget. Accept connections without budget reporting and budgets of any size; there is no local ceiling. Show the reported budget, or explicitly say it is not reported, before the user types `yes` to save. Wallet-side restrictions remain in force. Other permissions are allowed and listed.
 - **Storage:** the OS keyring (Secret Service via `secret-tool`, attributes `service=omacashu account=nwc`). There is no plaintext file fallback. `omacashu-helper disconnect` deletes the keyring entry and reminds you to revoke the connection in the wallet.
 - **Logging:** the secret is loaded into memory only by the helper and is never logged. The helper's console is silenced as in `readonly.mjs`. Journald receives only fixed event names such as `payment_succeeded` and `payment_failed`, with no amounts, invoices or URIs.
 
@@ -58,7 +53,7 @@ There is **no** one-step pay operation; every payment needs `prepare` and then `
 - The network must be **mainnet** (`lnbc`), unless the helper was started with an explicit `--network` for testing.
 - **Amount required:** amountless invoices are refused.
 - The invoice must not be expired and must have at least 60 seconds of validity left. The timestamp must not be in the future.
-- The amount must be no more than the budget's remaining amount (`total - used`).
+- When a budget is reported, the amount must be no more than its remaining amount (`total - used`).
 - **Duplicates:** a payment hash that was already paid is refused. Paid hashes are kept in `$XDG_STATE_HOME/omacashu/paid.json` (`0600`), and duplicate prepares are tracked in memory.
 - The description is sanitized (control, bidi and line-separator characters removed, at most 120 characters) and shown as **unverified text**.
 
@@ -76,7 +71,7 @@ There is **no** one-step pay operation; every payment needs `prepare` and then `
 - There is no auto-pay, no "remember this payee" and no background payments. Each `payment_id` is shown once.
 - Invoices arrive by pasting into the panel's text field. The field has focus whenever the panel is ready.
 - Keyboard alternative: the hold button takes focus on the review screen, and holding <kbd>Space</kbd> for 1.5 s confirms. Auto-repeat events are ignored.
-- Limitation, stated in the README and threat model: confirmation prevents mistakes and stops a buggy plugin from paying silently. It cannot stop malware running as your user, which could call the socket directly. The budget is what limits that.
+- Limitation, stated in the README and threat model: confirmation prevents mistakes and stops a buggy plugin from paying silently. It cannot stop malware running as your user, which could call the socket directly. Only restrictions configured in the wallet limit that.
 
 ## 7. Plugin rules (enforced by `tests/test_plugin.py`)
 
@@ -101,33 +96,14 @@ See `helper/systemd/omacashu-helper.service`. It sets:
 | Threat | Result in live wallet mode |
 |---|---|
 | Malicious or buggy plugin in the same shell | Cannot read the secret. Can submit invoices, but payment needs confirmation in the omaCashu panel. Another plugin could draw over the panel, which is a known limitation |
-| Malware running as your user | **Can spend up to the remaining wallet budget per period** and copy the NWC secret from the keyring. Mitigations: small budget, revoke in the wallet, renewal-period limits |
+| Malware running as your user | **Can spend everything the connection allows** and copy the NWC secret from the keyring. Mitigations: small budget, revoke in the wallet, renewal-period limits |
 | Fake or tampered invoice details | The helper verifies the signature, network, amount and expiry. The plugin shows only helper data |
 | Double payment or replay | Single-use `payment_id`; paid payment hashes are kept across restarts |
 | Leaks through logs or crashes | Silenced console, generic errors, nothing secret in journald, systemd `LimitCORE=0` |
 | Wallet or relay compromise | Out of scope; bounded by the wallet's own controls |
 
-## 10. Implementation status (0.2.0-alpha)
+## 10. Current validation
 
-1. ✅ Verified BOLT11 decoder (`helper/src/bolt11.mjs`): passes every BOLT #11 spec vector, both valid and invalid, plus high-S and tampering tests.
-2. ✅ `omacashu connect` and `disconnect`: hidden input, keyring storage, budget, method and ceiling checks.
-3. ✅ Daemon: user-only socket, strict request parsing, rate limits, single-use confirmations, persistent ledger, silenced logging.
-4. ✅ Sandboxed systemd user unit and home-only installer and uninstaller.
-5. ✅ Plugin: helper missing, not connected, unreachable, blocked, ready, review, paying, result and settings states.
-6. ✅ Tests:
-   - 31 helper unit tests and 25 plugin rule tests;
-   - real NWC Faucet end-to-end payment (`helper/test/e2e/faucet-e2e.mjs`);
-   - on-device UI flow on Omarchy: paste, review, hold Space, paid. The payee balance confirmed receipt.
-7. ⏳ A mainnet payment with a real budget-limited wallet (budget of 1,000 sats or less). This needs your wallet.
+The helper accepts connections without `get_budget` and without a reported budget, and budgets above the former 100,000-sat ceiling. Unit tests cover optional budget reporting and preserve signature, expiry, mainnet, single-use confirmation, replay and preimage checks. Faucet tests use the production policy and fake sats. A successful Cashu.me connection has not yet been verified with the owner's wallet.
 
-## 11. Release gates for the first paying version
-
-- [x] All BOLT11 spec vectors pass, plus negative tests: bad signature, wrong network, amountless, expired, future timestamp, over budget, high-S with an `n` field.
-- [x] Connections without a budget or over the ceiling are refused. Extra permissions are allowed and reported. Checked live: the NWC Faucet connection is refused.
-- [x] `payment_id` is single-use and expires after 120 s. Duplicate payment hashes are refused across restarts, and unresolved attempts block retries.
-- [x] No secret, invoice or amount in logs or stderr. The console is silenced, errors are generic, and the CLI test checks this.
-- [x] The socket is user-only (`0600` in `0700`, ownership-checked). The plugin CI allows only the helper socket and the fixed launcher.
-- [x] End-to-end payment on the NWC Faucet (fake sats).
-- [ ] A mainnet payment with a budget of 1,000 sats or less, using your own wallet.
-- [x] README, SECURITY and the listing state that malware running as your user can spend up to the wallet budget.
-- [ ] Independent review before promoting live mode beyond alpha.
+Historical release evidence and remaining onboarding checks are in RELEASE_CHECKLIST.md. The earlier mandatory-budget policy was superseded on 2026-10-31.

@@ -1,29 +1,29 @@
 # omaCashu
 
 **A Lightning + Cashu wallet for the Omarchy bar.**
-*Your wallet. Your budget. Every payment confirmed.*
+*Your wallet. Every payment confirmed.*
 
 ![omaCashu: installed payment panel with the warning dismissed](preview.png)
 
 *Actual capture of the installed panel with the warning dismissed, using an NWC Faucet test wallet (fake sats and a simulated budget).*
 
 [![Status: Alpha](https://img.shields.io/badge/status-alpha-orange)](#alpha-warning)
-[![Budget required](https://img.shields.io/badge/wallet%20budget-required-blue)](#security-model)
+[![NWC](https://img.shields.io/badge/NWC-wallet%20budgets%20optional-blue)](#security-model)
 [![NIP-47](https://img.shields.io/badge/protocol-NIP--47-blue)](https://nips.nostr.com/47)
 [![MIT License](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 
-omaCashu pays Lightning invoices from your Omarchy bar using your existing **Lightning or NWC-enabled Cashu wallet** (Nostr Wallet Connect, NIP-47). The wallet connection never enters the desktop shell. A small helper keeps it in your system keyring, refuses any connection without a **spending budget enforced by the wallet itself**, verifies every invoice, and pays only after you **press and hold** to confirm.
+omaCashu pays Lightning invoices from your Omarchy bar using your existing **Lightning or NWC-enabled Cashu wallet** (Nostr Wallet Connect, NIP-47). The wallet connection never enters the desktop shell. A small helper keeps it in your system keyring, supports wallets with or without budget reporting, verifies every invoice, and pays only after you **press and hold** to confirm.
 
 > [!CAUTION]
 > ## Alpha warning
-> **0.2.0-alpha is experimental and has not been independently audited.** Use a **new, small, budget-limited** wallet connection created just for omaCashu. Anything running as your Omarchy user could spend up to that budget. Never paste a seed phrase or private key anywhere in this project.
+> **0.2.0-alpha is experimental and has not been independently audited.** Use a **new, small, budget-limited** wallet connection created just for omaCashu. Anything running as your Omarchy user could spend everything the connection permits. Never paste a seed phrase or private key anywhere in this project.
 
 ## How it works
 
 | Step | What happens |
 |---|---|
-| 1. **Connect** | `omacashu connect` asks for an NWC connection string (hidden input). It checks that the connection can pay invoices and that the wallet enforces a spending budget (default ceiling 100,000 sats per period). Then it saves the connection to your system keyring. |
-| 2. **Review** | Paste an invoice into the panel. The helper checks the signature and confirms it's a mainnet invoice with an amount that hasn't expired, hasn't been paid before, and fits your remaining budget. The panel shows only the helper's verified details. |
+| 1. **Connect** | `omacashu connect` asks for an NWC connection string (hidden input). It checks that the connection can pay invoices; budget reporting is optional and there is no local spending ceiling. Then it saves the connection to your system keyring. |
+| 2. **Review** | Paste an invoice into the panel. The helper checks the signature and confirms it's a mainnet invoice with an amount that hasn't expired, hasn't been paid before, and fits any reported remaining budget. The panel shows only the helper's verified details. |
 | 3. **Hold to pay** | Press and hold the button, or hold <kbd>Space</kbd>, for 1.5 seconds. The helper pays once and checks the proof of payment (preimage). The helper blocks invoices recorded as paid or unresolved in its local ledger. |
 
 ## Requirements
@@ -33,7 +33,7 @@ omaCashu pays Lightning invoices from your Omarchy bar using your existing **Lig
   - Node.js 22+ (`nodejs-lts-jod`)
   - `libsecret` (`secret-tool`) with a Secret Service keyring such as gnome-keyring (Omarchy default)
   - systemd user services
-- A wallet that supports **NWC budgets** (`get_budget`), for example [Alby Hub](https://albyhub.com) or another NWC wallet that can restrict a connection to paying invoices with a budget.
+- An NWC wallet whose connection allows `pay_invoice`. Budget reporting (`get_budget`) is optional; limits configured in the wallet still apply.
 
 The helper's npm dependencies are exact-pinned in `helper/package-lock.json`. They are installed with install scripts disabled and come from the npm registry. The plugin itself has no dependencies.
 
@@ -54,7 +54,7 @@ Then click the bolt (󱐋) in the bar. The panel guides you through three steps:
    - the `~/.local/bin/omacashu` command
 2. **Connect wallet**: in your wallet, create a new NWC connection with:
    - **Pay invoices** permission;
-   - a **budget**, for example 1,000 sats for your first test;
+   - optionally, a wallet-side **budget**;
    - any other permissions you like (omaCashu only uses paying and reading the budget).
 
    Choose **Continue in secure prompt**. Paste the connection into the hidden `omacashu connect` prompt, review the budget, and type `yes` to save. Reopen the panel or choose **I’ve finished — check setup** to continue.
@@ -93,7 +93,7 @@ Also **revoke the connection in your wallet**. Removal leaves nothing behind exc
  omarchy-shell (unsandboxed, shared)          omacashu-helper (your user, sandboxed service)
 ┌──────────────────────────────────┐  unix  ┌─────────────────────────────────────────────┐
 │ omaCashu panel (QML)             │ socket │ NWC connection from the system keyring       │
-│ • no wallet secret, ever         ├───────▶│ • wallet budget required                     │
+│ • no wallet secret, ever         ├───────▶│ • wallet budget optional                     │
 │ • shows helper-verified details  │  0600  │ • BOLT11 signature/network/amount/expiry     │
 │ • hold-to-pay confirmation       │        │ • single-use confirmations, paid-hash ledger │
 └──────────────────────────────────┘        └──────────────────────┬──────────────────────┘
@@ -102,7 +102,7 @@ Also **revoke the connection in your wallet**. Removal leaves nothing behind exc
                                                      Your wallet enforces the budget
 ```
 
-- **The budget is the hard limit.** The helper keeps the secret out of the shell, but malware running as your user could still read the keyring entry or talk to the helper socket. Keep the budget small and revoke the connection if in doubt.
+- **Wallet-side restrictions define your exposure.** The helper keeps the secret out of the shell, but malware running as your user could still read the keyring entry or talk to the helper socket. Keep the budget small and revoke the connection if in doubt.
 - **The panel's only capabilities** are:
   - one socket to the helper;
   - one fixed command that opens a terminal for `install`, `connect` or `disconnect`.

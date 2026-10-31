@@ -12,13 +12,13 @@ Reopen the panel when installation finishes. If it still shows step 1, choose **
 
 ## 2. Prepare and connect your wallet
 
-In your wallet's Nostr Wallet Connect settings, create a new connection named omaCashu. Enable paying invoices (`pay_invoice`) and reading the budget (`get_budget`). Set a small wallet-enforced spending budget and check whether it renews. Other permissions are accepted, but give only those you need.
+In your wallet's Nostr Wallet Connect settings, create a new connection named omaCashu. Enable paying invoices (`pay_invoice`) ; budget reporting (`get_budget`) is optional. If your wallet supports a spending budget, you can set one there. Other permissions are accepted, but give only those you need.
 
-Not every Cashu or Lightning wallet supports NWC or NWC budgets. A balance is not a connection budget. If your wallet cannot issue a budget-limited NWC connection, it cannot be used with this release.
+Not every Cashu or Lightning wallet supports NWC or NWC budgets. A balance is not a connection budget. Wallets without `get_budget` are supported; omaCashu imposes no local spending ceiling.
 
-Choose **Continue in secure prompt** in the panel. Paste the connection string into the hidden terminal prompt. Never paste a seed phrase. The helper checks the wallet, shows its reported budget and asks you to type `yes` before saving in the system keyring.
+Choose **Continue in secure prompt** in the panel. Paste the connection string into the hidden terminal prompt. Never paste a seed phrase. The helper checks the wallet, shows its reported budget, if available, and asks you to type `yes` before saving in the system keyring.
 
-Reopen the panel. A ready screen with your remaining budget means connection checks passed. This does not constitute a successful payment test.
+Reopen the panel. A ready screen with your remaining budget, if reported, means connection checks passed. This does not constitute a successful payment test.
 
 ## 3. Review and pay
 
@@ -30,10 +30,10 @@ Use an amount-bearing mainnet Lightning invoice with at least a minute remaining
 |---|---|
 | Missing Node.js, npm or secret-tool | Install the prerequisite named by the installer and rerun it. |
 | Cannot save to keyring | Unlock your system keyring and ensure Secret Service is available; run connect again. There is no plaintext fallback. |
-| No wallet-enforced budget | Create a connection with a budget in a wallet that supports `get_budget`. |
-| Budget exceeds ceiling | Lower the connection budget in your wallet; the default local ceiling is 100,000 sats per period. |
+| Missing `get_budget` or no budget reported | Supported. If an older helper refuses it, update the helper from this release. |
+| Budget exceeds ceiling | Update the helper: this release removes the former local ceiling. |
 | Wallet unreachable | Check internet access and whether the wallet is online, then retry. |
 | Connected but blocked | Read the reported policy problem and correct the connection in your wallet. |
 | Command not found | Run `~/.local/bin/omacashu status` directly. |
 
-To disconnect, use the panel settings and then revoke the connection in your wallet. Local removal alone does not revoke a copied connection string. Malware running as your desktop user can spend up to the remaining wallet budget.
+To disconnect, use the panel settings and then revoke the connection in your wallet. Local removal alone does not revoke a copied connection string. Malware running as your desktop user can spend everything the connection permits.

@@ -43,10 +43,8 @@ function loadPolicy() {
       errOut(`omacashu: ignoring unreadable config ${configPath}`);
     }
   }
-  const ceiling = Number.isSafeInteger(config.budgetCeilingSat) && config.budgetCeilingSat > 0 && config.budgetCeilingSat <= 10_000_000
-    ? config.budgetCeilingSat : STRICT_POLICY.ceilingSat;
   const network = NETWORKS.includes(config.network) ? config.network : STRICT_POLICY.network;
-  return Object.freeze({ ...STRICT_POLICY, ceilingSat: ceiling, network });
+  return Object.freeze({ ...STRICT_POLICY, network });
 }
 
 function readHidden(prompt) {
@@ -108,11 +106,11 @@ async function connect() {
   out('omaCashu: connect a wallet (Nostr Wallet Connect)');
   out('');
   out('Create a NEW connection in your wallet just for omaCashu, with:');
-  out('  • permission to pay invoices (pay_invoice) and read the budget (get_budget)');
-  out(`  • a spending BUDGET (required), at most ${formatSats(policy.ceilingSat)} per period`);
+  out('  • permission to pay invoices (pay_invoice)');
+  out('  • an optional wallet spending budget; omaCashu imposes no local ceiling');
   out('');
   out('The connection string is stored only in your system keyring, never in the plugin.');
-  out('Anything running as your user could spend up to that budget, so keep it small.');
+  out('Anything running as your user could spend everything this connection allows.');
   out('');
 
   if (await keyring.loadConnection().catch(() => null)) {
@@ -134,20 +132,21 @@ async function connect() {
   try {
     wallet = await createNwcWallet(parsed.url);
     const info = await wallet.getInfo();
-    const budgetResponse = await wallet.getBudget().catch(() => null);
+    const budgetResponse = info?.methods?.includes('get_budget') ? await wallet.getBudget().catch(() => null) : null;
     const { problems, budget, unused } = checkConnection(info, budgetResponse, policy);
     if (problems.length) {
       errOut('');
       errOut('This connection cannot be used:');
       for (const problem of problems) errOut(`  ✗ ${problem}`);
       errOut('');
-      errOut('Create a new connection in your wallet that can pay invoices and has a budget, then run omacashu connect again.');
+      errOut('Create a new connection in your wallet that can pay invoices, then run omacashu connect again.');
       return 1;
     }
-    const renews = budget.renewsAt ? `, renews ${new Date(budget.renewsAt * 1000).toLocaleString()}` : '';
+    const renews = budget?.renewsAt ? `, renews ${new Date(budget.renewsAt * 1000).toLocaleString()}` : '';
     out('');
     out(`  Wallet:  ${info.alias ? String(info.alias).replace(/[^\x20-\x7e]/g, '').slice(0, 40) : 'unnamed'} (${info.network ?? 'unknown network'})`);
-    out(`  Budget:  ${formatSats(Math.floor(budget.usedMsat / 1000))} used of ${formatSats(Math.floor(budget.totalMsat / 1000))} (${budget.renewalPeriod}${renews})`);
+    if (budget) out(`  Budget:  ${formatSats(Math.floor(budget.usedMsat / 1000))} used of ${formatSats(Math.floor(budget.totalMsat / 1000))} (${budget.renewalPeriod}${renews})`);
+    else out('  Budget:  not reported; wallet-side restrictions, if any, still apply');
     out(`  Network: payments allowed on ${policy.network} only`);
     if (unused.length) out(`  Also allows (omaCashu never uses these): ${unused.join(', ')}`);
     out('');
@@ -184,7 +183,7 @@ async function status() {
     errOut('Helper is not running. Start it with: systemctl --user start omacashu-helper');
     return 1;
   }
-  out(`Helper:  running (v${response.version}, ${response.mode} only, ceiling ${formatSats(response.ceiling_sat)})`);
+  out(`Helper:  running (v${response.version}, ${response.mode} only)`);
   if (!response.connected) {
     out(`Wallet:  not connected (${response.problem ?? 'run omacashu connect'})`);
     return 0;
@@ -207,7 +206,7 @@ async function daemon() {
     policy,
   });
   const server = await startServer(service, socketPath);
-  errOut(`omacashu helper ${VERSION} ready (${policy.network}, ceiling ${policy.ceilingSat} sats)`);
+  errOut(`omacashu helper ${VERSION} ready (${policy.network})`);
   const stop = () => {
     server.close();
     service.reload();

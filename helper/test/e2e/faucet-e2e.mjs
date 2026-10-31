@@ -4,9 +4,7 @@
  * Faucet balances are NOT real money. Opt-in only: `node test/e2e/faucet-e2e.mjs`.
  *
  * Exercises the real HelperService, BOLT11 verifier, ledger and Alby SDK NWC
- * client. Faucet connections have no budget, so the
- * payment leg uses a relaxed policy constructed HERE (test-only); the strict
- * policy is also checked and must refuse the same connection.
+ * client with the production policy. Faucet connections need no budget reporting.
  */
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -14,7 +12,6 @@ import { join } from 'node:path';
 import assert from 'node:assert/strict';
 import { HelperService } from '../../src/service.mjs';
 import { Ledger } from '../../src/ledger.mjs';
-import { STRICT_POLICY } from '../../src/policy.mjs';
 import { createNwcWallet } from '../../src/wallet.mjs';
 
 for (const m of ['log', 'info', 'warn', 'error', 'debug']) console[m] = () => {};
@@ -38,17 +35,8 @@ try {
   const payeeUri = await faucetWallet(0);
   say('✓ created two faucet wallets (fake sats)');
 
-  const strict = new HelperService({
-    loadCredential: async () => payerUri, walletFactory: createNwcWallet, ledger: new Ledger(join(dir, 'strict')),
-  });
-  const strictStatus = await strict.handle({ op: 'status' });
-  assert.equal(strictStatus.usable, false);
-  say(`✓ strict policy refuses the faucet connection: ${strictStatus.problems.join('; ')}`);
-  strict.reload();
-
-  const relaxed = Object.freeze({ ...STRICT_POLICY, requireBudget: false });
   const service = new HelperService({
-    loadCredential: async () => payerUri, walletFactory: createNwcWallet, ledger: new Ledger(join(dir, 'relaxed')), policy: relaxed,
+    loadCredential: async () => payerUri, walletFactory: createNwcWallet, ledger: new Ledger(join(dir, 'payments')),
   });
 
   payeeWallet = await createNwcWallet(payeeUri);

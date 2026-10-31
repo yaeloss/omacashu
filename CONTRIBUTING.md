@@ -1,12 +1,12 @@
 # Contributing to omaCashu
 
-omaCashu is an **unaudited alpha** that can move real funds up to a wallet-enforced budget. Never include seeds, real NWC connection URLs, Cashu tokens, private keys or real invoices in issues, PRs, screenshots or logs. For live tests, use the [NWC Faucet](https://faucet.nwc.dev) (fake sats).
+omaCashu is an **unaudited alpha** that can move real funds subject to the wallet’s own restrictions. Never include seeds, real NWC connection URLs, Cashu tokens, private keys or real invoices in issues, PRs, screenshots or logs. For live tests, use the [NWC Faucet](https://faucet.nwc.dev) (fake sats).
 
 ## Ground rules
 
 - Follow [docs/LIVE_WALLET_DESIGN.md](docs/LIVE_WALLET_DESIGN.md):
   - the credential lives only in the helper;
-  - a wallet-enforced budget is mandatory;
+  - wallet budgets are optional and there is no local spending ceiling;
   - every payment is confirmed in the panel against helper-verified details.
 - **QML** may only:
   - use one `Socket` to the helper, with the `status`, `prepare`, `confirm` and `cancel` operations;
@@ -40,7 +40,7 @@ mkdir -p /tmp/qs-imports && ln -sfn "$OMARCHY_PATH/shell" /tmp/qs-imports/qs
 node helper/test/e2e/faucet-e2e.mjs
 ```
 
-This creates two faucet wallets and pays a 21-sat invoice through the real helper service, verifier and NWC client. It also checks that the strict policy refuses the faucet connection, which has no budget.
+This creates two faucet wallets and pays a 21-sat invoice through the real helper service, verifier and NWC client. It uses the production policy, which accepts connections without budget reporting.
 
 ### On-device UI test
 

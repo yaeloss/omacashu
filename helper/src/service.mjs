@@ -55,7 +55,7 @@ export class HelperService {
   async refresh(force = false) {
     if (!force && this.connection && this.clock() - this.lastRefresh < REFRESH_SECONDS) return this.connection;
     const info = await this.wallet.getInfo();
-    const budgetResponse = await this.wallet.getBudget().catch(() => null);
+    const budgetResponse = info?.methods?.includes('get_budget') ? await this.wallet.getBudget().catch(() => null) : null;
     const { problems, budget } = checkConnection(info, budgetResponse, this.policy);
     this.connection = {
       alias: sanitizeText(info?.alias, 40),
@@ -87,7 +87,7 @@ export class HelperService {
   }
 
   base() {
-    return { ok: true, version: VERSION, mode: this.policy.network, ceiling_sat: this.policy.ceilingSat };
+    return { ok: true, version: VERSION, mode: this.policy.network };
   }
 
   budgetView(budget) {

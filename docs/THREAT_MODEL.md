@@ -9,17 +9,17 @@ This document covers the whole omaCashu system: the Omarchy plugin, the desktop 
 | Mode | Spending credential lives in | Hard limit if the desktop is compromised | Status |
 |---|---|---|---|
 | **Preview** (0.1.0-alpha, superseded) | Nowhere; no payments | Nothing to spend | Superseded by 0.2.0 |
-| **Live wallet (desktop helper)** | `omacashu-helper` service + OS keyring on Omarchy | **Remaining wallet-enforced budget** | **Default, shipped in 0.2.0-alpha**; see [LIVE_WALLET_DESIGN.md](LIVE_WALLET_DESIGN.md) |
+| **Live wallet (desktop helper)** | `omacashu-helper` service + OS keyring on Omarchy | **Everything permitted by the connection** | **Default, shipped in 0.2.0-alpha**; see [LIVE_WALLET_DESIGN.md](LIVE_WALLET_DESIGN.md) |
 | **Trusted device** (`trusted/`) | Separate physical device | Only what you approve on that device's screen | Request-only kit; payments gated (see the end of this document) |
 
-The rest of this document describes the trusted-device mode in detail. The live-wallet threat changes are in §9 of the design document. In short: malware running as your login user can spend up to the remaining budget, so the budget must be small and revocable.
+The rest of this document describes the trusted-device mode in detail. The live-wallet threat changes are in §9 of the design document. In short: malware running as your login user can spend everything permitted by the connection. Wallet budgets are optional and omaCashu imposes no local ceiling. Use a dedicated, revocable connection.
 
 ## Assets
 
 | Asset | Where it may exist |
 |---|---|
 | Wallet seed, Cashu bearer proofs, private Nostr keys | Wallet only. Never on Omarchy, never in omaCashu |
-| NWC connection URI (contains the client's spending key) | Preview/trusted mode: trusted device only. Live wallet mode: `omacashu-helper` + OS keyring, budget-limited by the wallet |
+| NWC connection URI (contains the client's spending key) | Preview/trusted mode: trusted device only. Live wallet mode: `omacashu-helper` + OS keyring, subject to any wallet-side limits |
 | Payment authorization | Live wallet mode: press-and-hold confirmation in the omaCashu panel on helper-verified details. Trusted mode: the trusted device's own screen. Desktop confirmation is implemented; trusted-device approval remains future work |
 | Proposal SSH key | Omarchy. Can only submit invoice-shaped text or query an opaque ID |
 | Pending proposal queue | Trusted device, broker-private SQLite (`0600`, owner-checked) |

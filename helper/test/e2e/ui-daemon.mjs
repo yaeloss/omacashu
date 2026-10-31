@@ -11,7 +11,6 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { HelperService } from '../../src/service.mjs';
 import { Ledger } from '../../src/ledger.mjs';
-import { STRICT_POLICY } from '../../src/policy.mjs';
 import { startServer } from '../../src/server.mjs';
 import { createNwcWallet } from '../../src/wallet.mjs';
 
@@ -38,7 +37,6 @@ const service = new HelperService({
     };
   },
   ledger: new Ledger(mkdtempSync(join(tmpdir(), 'omacashu-ui-'))),
-  policy: Object.freeze({ ...STRICT_POLICY, requireBudget: false }),
 });
 
 const runtime = join(process.env.XDG_RUNTIME_DIR, 'omacashu');

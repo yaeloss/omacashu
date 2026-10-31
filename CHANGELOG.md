@@ -4,6 +4,8 @@ All notable changes to omaCashu. Versions follow [Semantic Versioning](https://s
 
 ## Unreleased
 
+- Removed the local spending ceiling and mandatory NWC budget reporting. Connections require `pay_invoice`; `get_budget` is queried only when advertised. Wallet-side limits and payment confirmation still apply.
+
 - Alpha banner can be dismissed with × (keyboard accessible); Omarchy widget settings remember the choice across restarts.
 - Ledger loading fails closed on read errors and invalid schemas; ledger replacement syncs the parent directory before payments.
 - Helper updates retain the previous code and launch configuration until startup succeeds and restore them on failure.

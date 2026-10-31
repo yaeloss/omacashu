@@ -2,7 +2,7 @@
   "name": "omacashu-helper",
   "version": "0.2.0-alpha",
   "private": true,
-  "description": "Desktop wallet helper for the omaCashu Omarchy plugin: keeps the NWC connection in the system keyring and pays only budget-limited, confirmed invoices",
+  "description": "Desktop wallet helper for the omaCashu Omarchy plugin: keeps the NWC connection in the system keyring and pays only confirmed invoices",
   "type": "module",
   "engines": {
     "node": ">=22"

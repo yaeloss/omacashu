@@ -11,8 +11,8 @@ import qs.Ui
 //
 // Talks ONLY to the omaCashu helper over its user-only socket
 // ($XDG_RUNTIME_DIR/omacashu/helper.sock). The helper holds the wallet
-// connection in the system keyring, verifies invoices and enforces the
-// wallet budget. This panel never sees the credential, never parses
+// connection in the system keyring, verifies invoices and reads any
+// available wallet budget. This panel never sees the credential, never parses
 // invoices itself, and every payment needs a press-and-hold confirmation
 // of helper-verified details. The only other capability is opening a
 // terminal for fixed helper commands (install, connect, disconnect).
@@ -546,7 +546,7 @@ Panel {
               Text {
                 width: parent.width
                 textFormat: Text.PlainText
-                text: "Experimental software. Use only a small, budget-limited wallet connection."
+                text: "Experimental software. Use a dedicated wallet connection with only the funds you intend to expose."
                 color: root.contentForeground
                 font.family: root.contentFontFamily
                 font.pixelSize: Style.font.body
@@ -619,7 +619,7 @@ Panel {
             family: root.contentFontFamily
             icon: root.glyph("wallet")
             title: "Prepare your wallet connection"
-            body: "In your wallet, create a new Nostr Wallet Connect connection just for omaCashu. Enable paying invoices and reading the budget. Set a small spending budget, such as 1,000 sats for your first test.\n\nYour wallet must support NWC budgets; not every Lightning or Cashu wallet does. Have the connection string ready, then continue."
+            body: "In your wallet, create a new Nostr Wallet Connect connection just for omaCashu. Enable paying invoices. A wallet spending budget is optional; omaCashu has no local spending ceiling.\n\nYour wallet’s own limits still apply. Have the connection string ready, then continue."
             actionText: "Continue in secure prompt"
             actionIcon: root.glyph("link")
             actionEnabled: root.pathsSafe
@@ -648,7 +648,7 @@ Panel {
             iconColor: root.warnColor
             title: "Connection not allowed"
             body: root.helperStatus && root.helperStatus.problems ? root.helperStatus.problems.join("\n") : ""
-            actionText: "Connect a budget-limited wallet"
+            actionText: "Connect wallet"
             actionIcon: root.glyph("link")
             actionEnabled: root.pathsSafe
             onAction: root.connectWallet()
@@ -658,7 +658,7 @@ Panel {
             width: parent.width
             visible: root.phase === "not_connected" || root.phase === "unusable"
             textFormat: Text.PlainText
-            text: "Paste the connection only into the helper's hidden terminal prompt. Review the budget and type yes to save. Then reopen this panel for step 3. Use only a dedicated wallet connection."
+            text: "Paste the connection only into the helper's hidden terminal prompt. Review the connection and type yes to save. Then reopen this panel for step 3. Use only a dedicated wallet connection."
             color: root.contentDim
             font.family: root.contentFontFamily
             font.pixelSize: Style.font.body
@@ -723,7 +723,7 @@ Panel {
                 Text {
                   width: parent.width
                   textFormat: Text.PlainText
-                  text: root.budget ? root.sats(root.budget.remaining_sat) + " left of " + root.sats(root.budget.total_sat) + " budget" : ""
+                  text: root.budget ? root.sats(root.budget.remaining_sat) + " left of " + root.sats(root.budget.total_sat) + " budget" : "Budget not reported by wallet"
                   color: root.contentDim
                   font.family: root.contentFontFamily
                   font.pixelSize: Style.font.bodySmall
@@ -863,7 +863,7 @@ Panel {
             Text {
               width: parent.width
               textFormat: Text.PlainText
-              text: "Routing fees are paid from the same wallet budget. Signature, network, amount and expiry were verified by the helper."
+              text: "Routing fees are charged by your wallet. Signature, network, amount and expiry were verified by the helper."
               color: root.contentDim
               font.family: root.contentFontFamily
               font.pixelSize: Style.font.caption
@@ -964,7 +964,7 @@ Panel {
           }
           InfoRow {
             label: "Payments allowed on"
-            value: root.helperStatus ? root.helperStatus.mode + " · max budget " + root.sats(root.helperStatus.ceiling_sat) : "unknown"
+            value: root.helperStatus ? root.helperStatus.mode + " · no local spending ceiling" : "unknown"
             fg: root.contentForeground
             family: root.contentFontFamily
           }
@@ -1014,7 +1014,7 @@ Panel {
           Text {
             width: parent.width
             textFormat: Text.PlainText
-            text: "Your wallet connection lives in the system keyring, never in this plugin. Anything running as your user could spend up to the wallet budget, so keep it small."
+            text: "Your wallet connection lives in the system keyring, never in this plugin. Anything running as your user could spend everything this connection allows. Wallet-side limits still apply."
             color: root.contentDim
             font.family: root.contentFontFamily
             font.pixelSize: Style.font.caption

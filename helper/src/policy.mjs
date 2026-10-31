@@ -1,6 +1,6 @@
 /**
  * Live-wallet policy (docs/LIVE_WALLET_DESIGN.md). The daemon always uses
- * STRICT_POLICY; only test harnesses construct relaxed policies.
+ * STRICT_POLICY: invoice verification and confirmation remain mandatory.
  */
 export class PolicyError extends Error {
   constructor(code, message) {
@@ -12,14 +12,11 @@ export class PolicyError extends Error {
 // omaCashu only ever calls get_info, get_budget and pay_invoice. Other permissions on the
 // connection are allowed; they are listed at connect time for information only.
 export const USED_METHODS = new Set(['get_info', 'get_budget', 'pay_invoice']);
-export const REQUIRED_METHODS = ['pay_invoice', 'get_budget'];
-export const DEFAULT_CEILING_SAT = 100_000;
+export const REQUIRED_METHODS = ['pay_invoice'];
 export const MIN_SECONDS_LEFT = 60;
 export const MAX_FUTURE_SKEW = 60;
 
 export const STRICT_POLICY = Object.freeze({
-  requireBudget: true,
-  ceilingSat: DEFAULT_CEILING_SAT,
   network: 'mainnet',
 });
 
@@ -41,7 +38,7 @@ export function normalizeBudget(budget) {
  * Returns human-readable problems (an empty list means the connection is acceptable) and
  * `unused`: extra permissions on the connection that omaCashu never calls (informational).
  */
-export function checkConnection(info, budgetResponse, policy = STRICT_POLICY) {
+export function checkConnection(info, budgetResponse) {
   const problems = [];
   const methods = Array.isArray(info?.methods) ? info.methods.filter((m) => typeof m === 'string') : [];
   for (const method of REQUIRED_METHODS) {
@@ -49,13 +46,6 @@ export function checkConnection(info, budgetResponse, policy = STRICT_POLICY) {
   }
   const unused = methods.filter((m) => !USED_METHODS.has(m)).map((m) => m.slice(0, 32)).slice(0, 16);
   const budget = normalizeBudget(budgetResponse);
-  if (policy.requireBudget) {
-    if (!budget) {
-      problems.push('connection has no wallet-enforced budget');
-    } else if (budget.totalMsat > policy.ceilingSat * 1000) {
-      problems.push(`budget ${Math.floor(budget.totalMsat / 1000)} sats exceeds the local ceiling of ${policy.ceilingSat} sats`);
-    }
-  }
   return { problems, budget, unused };
 }
 

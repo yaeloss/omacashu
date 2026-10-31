@@ -3,7 +3,7 @@
 The desktop half of omaCashu. It is the **only** component that holds your wallet connection. The Omarchy panel talks to it over a user-only socket and never sees the secret.
 
 ```text
-omacashu connect      store a budget-limited NWC connection in the system keyring (hidden input)
+omacashu connect      store an NWC connection in the system keyring (hidden input)
 omacashu status       helper and wallet status (budget, never balances)
 omacashu disconnect   remove the connection (then revoke it in your wallet)
 omacashu daemon       the service itself (run by systemd --user)
@@ -24,8 +24,8 @@ The installer runs as your user only, and refuses to run as root. It copies the 
 
 | Check | Where |
 |---|---|
-| Connection must have a wallet-enforced budget, at most `budgetCeilingSat` (default 100,000) | `src/policy.mjs` |
-| Connection must allow `pay_invoice` and `get_budget`; other permissions are allowed and listed at connect time | `src/policy.mjs` |
+| Budget reporting is optional; no local spending ceiling | `src/policy.mjs` |
+| Connection must allow `pay_invoice`; `get_budget` is optional; other permissions are allowed and listed at connect time | `src/policy.mjs` |
 | BOLT11 signature, payee, network (mainnet by default), amount present, ≥ 60 s validity, within remaining budget | `src/bolt11.mjs`, `src/policy.mjs` |
 | `prepare` → single-use `confirm` within 120 s; at most 10 prepares and 3 confirms per minute | `src/service.mjs` |
 | Attempt recorded before paying; paid or unresolved invoices are never paid again; preimage must match | `src/service.mjs`, `src/ledger.mjs` |
@@ -35,7 +35,7 @@ The installer runs as your user only, and refuses to run as root. It copies the 
 Optional config, `~/.config/omacashu/helper.json`:
 
 ```json
-{ "budgetCeilingSat": 50000, "network": "mainnet" }
+{ "network": "mainnet" }
 ```
 
 ## Protocol (one JSON line per connection)
@@ -58,4 +58,4 @@ node test/e2e/faucet-e2e.mjs       # real payment between two NWC Faucet wallets
 node test/e2e/ui-daemon.mjs        # serve the panel from a faucet wallet (stop the real helper first)
 ```
 
-The e2e harnesses build relaxed policies **inside the test files**, because faucet wallets have no budgets. The shipped daemon always uses `STRICT_POLICY`.
+The faucet harness uses the production policy with fake sats. Legacy `budgetCeilingSat` configuration is ignored.

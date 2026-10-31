@@ -14,10 +14,11 @@
 ## Rules every release must keep
 
 1. **The secret stays in the helper.** The NWC connection is entered only through `omacashu connect` (hidden input, never argv or env) and stored only in the Secret Service keyring. It is never written to plugin files, shell config, logs, the clipboard or screenshots.
-2. **Budget required.**
-   - The helper refuses connections whose wallet reports no budget (`get_budget`).
-   - It refuses budgets above the local ceiling (default 100,000 sats per period).
-   - Other permissions on the connection are allowed. omaCashu only calls `get_info`, `get_budget` and `pay_invoice`, and lists any extra permissions at connect time.
+2. **Wallet limits are optional.**
+   - Require `pay_invoice`. `get_budget` is optional and queried only when advertised.
+   - No local spending ceiling. If a budget is reported, invoices must fit its remaining amount.
+   - A missing budget report does not prove the connection is unlimited. Wallet-side restrictions still apply.
+   - Other permissions are allowed and listed at connect time.
 3. **Verified, confirmed payments only.**
    - The helper verifies each BOLT11 invoice: signature, mainnet, amount present, not expired, under the remaining budget, never paid before.
    - The panel shows only helper-returned fields, and payment needs a 1.5-second press-and-hold (or hold Space) within 120 seconds.
@@ -31,7 +32,7 @@
    `tests/test_plugin.py` enforces this in CI.
 
 > [!WARNING]
-> **Accepted risk:** malware running as your Omarchy user can read the keyring entry or call the helper socket, so it can spend up to your **remaining wallet budget**. The budget, which the wallet itself enforces, is the hard limit. Keep it small. If you suspect compromise, revoke the connection in your wallet. For stronger isolation, use the separate-device kit in [`trusted/`](trusted/).
+> **Accepted risk:** malware running as your Omarchy user can read the keyring entry or call the helper socket, so it can spend **everything the connection permits**. Only restrictions enforced by the wallet limit that exposure. omaCashu does not require or impose a spending cap. If you suspect compromise, revoke the connection in your wallet. For stronger isolation, use the separate-device kit in [`trusted/`](trusted/).
 
 ## Supply chain
 
@@ -55,7 +56,7 @@ Never include live NWC URLs, private keys, seed phrases or spendable Cashu token
 
 ## Residual risks
 
-- A malicious plugin or process in the same session can draw fake UI over the panel. Payments still need the helper's single-use confirmation, and the budget still applies.
+- A malicious plugin or process in the same session can draw fake UI over the panel. Payments still need the helper's single-use confirmation, and any wallet-side restrictions still apply.
 - `omarchy plugin add` and `omarchy plugin update` fetch the repository's current `HEAD`, not a reviewed commit.
 - Feature-bit negotiation and routing are left to your wallet.
 - Relay operators see NWC traffic metadata. Cashu mints are custodial.

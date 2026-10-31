@@ -39,9 +39,9 @@ cat <<INFO
 omaCashu helper: live Lightning payments for the omaCashu bar widget.
 
   • Keeps your wallet connection (NWC) in the system keyring, never in the plugin.
-  • Refuses connections without a wallet-enforced spending budget.
+  • Accepts NWC wallets with or without budget reporting; no local spending ceiling.
   • Every payment needs your confirmation in the panel.
-  • Risk: anything running as your user could spend up to that budget. Keep it small.
+  • Risk: anything running as your user could spend everything the connection allows.
 
 Installs to $DEST, using $NODE.
 INFO
@@ -116,7 +116,7 @@ cat <<DONE
 
 ✓ omaCashu helper installed and running.
 
-Next: connect a wallet with a spending budget:
+Next: connect an NWC wallet:
     omacashu connect
 
 Remove later with: $SRC/uninstall.sh

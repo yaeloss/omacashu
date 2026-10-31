@@ -56,15 +56,16 @@ function setup(t, walletOptions = {}, extra = {}) {
 
 // ---------- policy ----------
 
-test('connection policy: budget required, ceiling; extra permissions allowed but reported', () => {
+test('connection policy: budget optional, no local ceiling; extra permissions allowed but reported', () => {
   assert.deepEqual(checkConnection(GOOD_INFO, BUDGET).problems, []);
-  assert.match(checkConnection(GOOD_INFO, {}).problems.join(), /no wallet-enforced budget/);
+  assert.deepEqual(checkConnection(GOOD_INFO, {}).problems, []);
+  assert.deepEqual(checkConnection({ methods: ['pay_invoice'] }, null).problems, []);
   const fullAccess = { methods: [...GOOD_INFO.methods, 'pay_keysend', 'make_hold_invoice', 'multi_pay_invoice', 'sign_message'] };
   const result = checkConnection(fullAccess, BUDGET);
   assert.deepEqual(result.problems, []);
   assert.deepEqual(result.unused, ['get_balance', 'pay_keysend', 'make_hold_invoice', 'multi_pay_invoice', 'sign_message']);
-  assert.match(checkConnection({ methods: ['get_info'] }, BUDGET).problems.join(), /pay_invoice.*get_budget/s);
-  assert.match(checkConnection(GOOD_INFO, { ...BUDGET, total_budget: 200_000_000 }).problems.join(), /exceeds the local ceiling/);
+  assert.match(checkConnection({ methods: ['get_info'] }, BUDGET).problems.join(), /pay_invoice/);
+  assert.deepEqual(checkConnection(GOOD_INFO, { ...BUDGET, total_budget: 200_000_000 }).problems, []);
 });
 
 test('invoice policy', () => {
@@ -85,7 +86,7 @@ test('invoice policy', () => {
 
 test('strict policy is frozen', () => {
   assert.ok(Object.isFrozen(STRICT_POLICY));
-  assert.equal(STRICT_POLICY.requireBudget, true);
+  assert.equal(STRICT_POLICY.network, 'mainnet');
 });
 
 // ---------- service ----------
@@ -156,11 +157,11 @@ test('success without a matching preimage is not trusted', async (t) => {
   assert.equal(ledger.status(paymentHash), 'unknown');
 });
 
-test('refuses unbudgeted connections, over-budget and wrong-network invoices; accepts full-access budgeted ones', async (t) => {
+test('accepts unbudgeted connections; refuses over-budget and wrong-network invoices', async (t) => {
   const noBudget = setup(t, { budget: {}, pay: async () => ({}) });
-  assert.equal((await noBudget.service.handle({ op: 'prepare', invoice: makeInvoice().invoice })).error, 'connection_not_allowed');
+  assert.equal((await noBudget.service.handle({ op: 'prepare', invoice: makeInvoice().invoice })).ok, true);
   const status = await noBudget.service.handle({ op: 'status' });
-  assert.equal(status.usable, false);
+  assert.equal(status.usable, true);
 
   const broad = setup(t, { info: { ...GOOD_INFO, methods: [...GOOD_INFO.methods, 'sign_message', 'pay_keysend'] }, pay: async () => ({}) });
   assert.equal((await broad.service.handle({ op: 'prepare', invoice: makeInvoice().invoice })).ok, true);
@@ -262,4 +263,17 @@ test('ledger persistence failure prevents contacting the wallet', async (t) => {
   ledger.save = () => { throw new Error('simulated disk failure'); };
   await assert.rejects(service.confirm(prepared.payment_id), /disk failure/);
   assert.equal(wallet.calls.pay.length, 0);
+});
+
+test('wallet without get_budget prepares and confirms without calling the unsupported method', async (t) => {
+  const proof = preimageFor();
+  const { service, wallet } = setup(t, { info: { methods: ['get_info', 'pay_invoice'] }, pay: async () => ({ preimage: proof.preimage }) });
+  let budgetCalls = 0;
+  wallet.getBudget = async () => { budgetCalls++; throw new Error('unsupported'); };
+  assert.equal((await service.status()).usable, true);
+  const prepared = await service.prepare(makeInvoice({ paymentHash: proof.hash }).invoice);
+  assert.equal(prepared.ok, true);
+  assert.equal(prepared.budget_remaining_after_sat, null);
+  assert.equal((await service.confirm(prepared.payment_id)).status, 'paid');
+  assert.equal(budgetCalls, 0);
 });
