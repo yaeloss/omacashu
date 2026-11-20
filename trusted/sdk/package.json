@@ -8,7 +8,7 @@
     "node": ">=22"
   },
   "dependencies": {
-    "@getalby/sdk": "8.0.3"
+    "@getalby/sdk": "8.1.1"
   },
   "scripts": {
     "test": "node --test test/*.test.mjs"
